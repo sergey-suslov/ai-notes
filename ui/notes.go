@@ -18,6 +18,9 @@ type notesModel struct {
 }
 
 // viewModel displays a single note in read-only mode.
+// viewExitMsg signals exiting the note view.
+type viewExitMsg struct{}
+// viewModel holds the note to display.
 type viewModel struct {
    note *store.Note
 }
@@ -30,10 +33,11 @@ func newViewModel(note *store.Note) viewModel {
 // Init does nothing for viewModel.
 func (m viewModel) Init() tea.Cmd { return nil }
 
-// Update exits on any key press.
+// Update exits view on any key press.
 func (m viewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
    if _, ok := msg.(tea.KeyMsg); ok {
-       return m, tea.Quit
+       // signal to exit view
+       return m, func() tea.Msg { return viewExitMsg{} }
    }
    return m, nil
 }
@@ -84,9 +88,10 @@ func (m *notesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
            m.selected = m.notes[m.cursor]
            return m, tea.Quit
        case tea.KeyEsc, tea.KeyCtrlC:
-           // cancel
+           // cancel and return to chat
            m.selected = nil
-           return m, tea.Quit
+           m.action = ""
+           return m, nil
        }
    }
    return m, nil

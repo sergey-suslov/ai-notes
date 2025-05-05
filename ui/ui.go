@@ -3,7 +3,6 @@ package ui
 import (
    "context"
    "fmt"
-   "os"
    "strings"
 
    "github.com/charmbracelet/bubbles/textinput"
@@ -197,39 +196,5 @@ func (m model) getNotesCmd() tea.Cmd {
    }
 }
 
-// Run starts the session selection, then chat TUI, and saves the session on exit.
-func Run() error {
-   client, err := openaiclient.NewClient()
-   if err != nil {
-       return fmt.Errorf("creating OpenAI client: %w", err)
-   }
-
-   // Load existing sessions
-   sessions, err := store.LoadSessions()
-   if err != nil {
-       return fmt.Errorf("loading sessions: %w", err)
-   }
-
-   // Selection TUI: choose new or existing session
-   selModel := newSelectionModel(sessions)
-   p1 := tea.NewProgram(selModel)
-   m1, err := p1.Run()
-   if err != nil {
-       return err
-   }
-   // Extract selected session
-   sm, ok := m1.(*selectionModel)
-   if !ok || sm.selectedSession == nil {
-       return fmt.Errorf("no session selected")
-   }
-   session := sm.selectedSession
-
-   // Launch chat UI
-   p2 := tea.NewProgram(NewModel(client, session))
-   _, err = p2.Run()
-   // always attempt to save session
-   if saveErr := session.Save(); saveErr != nil {
-       fmt.Fprintf(os.Stderr, "warning: failed to save session: %v\n", saveErr)
-   }
-   return err
-}
+// Run is provided by the app package (ui/app.go).
+// Use ui/app.go's Run when starting the application.

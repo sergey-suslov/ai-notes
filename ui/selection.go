@@ -64,7 +64,7 @@ func (m *selectionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
                // Resume existing session
                m.selectedSession = m.sessions[m.cursor-1]
            }
-           return m, tea.Quit
+           return m, nil
        }
    }
    return m, nil
