@@ -30,6 +30,24 @@ func (m *selectionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
    switch msg := msg.(type) {
    case tea.KeyMsg:
        switch msg.Type {
+       case tea.KeyRunes:
+           // delete session
+           if len(msg.Runes) > 0 && msg.Runes[0] == 'd' {
+               // only delete existing sessions
+               if m.cursor > 0 && m.cursor <= len(m.sessions) {
+                   idx := m.cursor - 1
+                   sess := m.sessions[idx]
+                   // remove file
+                   _ = sess.Delete()
+                   // remove from list
+                   m.sessions = append(m.sessions[:idx], m.sessions[idx+1:]...)
+                   // adjust cursor
+                   if m.cursor > len(m.sessions) {
+                       m.cursor = len(m.sessions)
+                   }
+               }
+               return m, nil
+           }
        case tea.KeyUp:
            if m.cursor > 0 {
                m.cursor--
@@ -55,7 +73,7 @@ func (m *selectionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the menu of sessions.
 func (m *selectionModel) View() string {
    var b strings.Builder
-   b.WriteString("Select a session (↑/↓ and Enter):\n\n")
+   b.WriteString("Select a session (↑/↓, Enter to select, d to delete, esc to cancel):\n\n")
    // Option 0: new session
    cursor := " "
    if m.cursor == 0 {

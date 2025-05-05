@@ -113,3 +113,16 @@ func sessionsDir() (string, error) {
 func (s *Session) filename() string {
    return s.ID + ".json"
 }
+
+// Delete removes the session JSON file from disk.
+func (s *Session) Delete() error {
+    dir, err := sessionsDir()
+    if err != nil {
+        return err
+    }
+    path := filepath.Join(dir, s.filename())
+    if err := os.Remove(path); err != nil {
+        return fmt.Errorf("removing session file: %w", err)
+    }
+    return nil
+}
