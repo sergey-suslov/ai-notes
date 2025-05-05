@@ -5,6 +5,7 @@ import (
    "fmt"
    "os"
    "path/filepath"
+   "sort"
    "time"
 )
 
@@ -91,6 +92,10 @@ func LoadSessions() ([]*Session, error) {
        }
        sessions = append(sessions, &s)
    }
+   // sort sessions by CreatedAt descending (newest first)
+   sort.Slice(sessions, func(i, j int) bool {
+       return sessions[i].CreatedAt.After(sessions[j].CreatedAt)
+   })
    return sessions, nil
 }
 
