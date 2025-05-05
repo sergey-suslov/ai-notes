@@ -21,11 +21,17 @@ type model struct {
    input   textinput.Model
 }
 
+
 // aiMsg wraps the AI's response content.
 type aiMsg string
 
 // errMsg wraps errors from async commands.
+// errMsg wraps errors from async commands.
 type errMsg struct{ err error }
+// noteMsg wraps generated note summary and file path.
+type noteMsg struct { Summary, Path string }
+// noteErr wraps errors from note generation or saving.
+type noteErr struct{ err error }
 
 // NewModel initializes the TUI model with  client and session.
 func NewModel(client *openaiclient.Client, session *store.Session) model {
@@ -50,6 +56,15 @@ func (m model) Init() tea.Cmd {
 // Update handles key presses and async messages.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
    switch msg := msg.(type) {
+   case noteMsg:
+       // append summary to chat
+       m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: msg.Summary})
+       // inform about saved file
+       m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: fmt.Sprintf("Notes saved to %s", msg.Path)})
+       return m, nil
+   case noteErr:
+       m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Error generating notes: " + msg.err.Error()})
+       return m, nil
    case aiMsg:
        // append AI reply
        m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: string(msg)})
@@ -59,6 +74,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
        return m, nil
    case tea.KeyMsg:
        switch msg.Type {
+       case tea.KeyCtrlL:
+           // list and inject notes
+           notes, err := store.LoadNotes()
+           if err != nil {
+               m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Error loading notes: " + err.Error()})
+               return m, nil
+           }
+           nm := newNotesModel(notes)
+           m2, err := tea.NewProgram(nm).Run()
+           if err != nil {
+               m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Error opening notes browser: " + err.Error()})
+               return m, nil
+           }
+           sel, ok := m2.(*notesModel)
+           if ok && sel.selected != nil {
+               // inject selected note into chat as a system message
+               m.session.Chat = append(m.session.Chat, store.Message{Role: "system", Content: sel.selected.Body})
+               m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: fmt.Sprintf("Injected notes: %s", sel.selected.Title)})
+           }
+           return m, nil
+       case tea.KeyCtrlN:
+           // trigger note generation
+           m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Generating notes..."})
+           return m, m.getNotesCmd()
        case tea.KeyCtrlC, tea.KeyEsc:
            return m, tea.Quit
        case tea.KeyEnter:
@@ -118,6 +157,35 @@ func (m model) getCompletionCmd() tea.Cmd {
            return errMsg{err}
        }
        return aiMsg(resp)
+   }
+}
+// getNotesCmd builds a tea.Cmd that generates bullet-point notes and saves them.
+func (m model) getNotesCmd() tea.Cmd {
+   return func() tea.Msg {
+       ctx := context.Background()
+       // start with a system prompt
+       sys := goopenai.ChatCompletionMessage{Role: goopenai.ChatMessageRoleSystem, Content: "Please summarize the following conversation into concise bullet-point notes."}
+       msgs := make([]goopenai.ChatCompletionMessage, len(m.session.Chat)+1)
+       msgs[0] = sys
+       for i, cm := range m.session.Chat {
+           role := goopenai.ChatMessageRoleUser
+           if cm.Role == "assistant" {
+               role = goopenai.ChatMessageRoleAssistant
+           }
+           msgs[i+1] = goopenai.ChatCompletionMessage{Role: role, Content: cm.Content}
+       }
+       // get summary
+       summary, err := m.client.ChatCompletion(ctx, msgs, "gpt-3.5-turbo")
+       if err != nil {
+           return noteErr{err}
+       }
+       // save note
+       note := store.NewNote(m.session.ID, summary)
+       path, err := note.Save()
+       if err != nil {
+           return noteErr{err}
+       }
+       return noteMsg{Summary: summary, Path: path}
    }
 }
 
