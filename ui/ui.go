@@ -89,9 +89,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
            }
            sel, ok := m2.(*notesModel)
            if ok && sel.selected != nil {
-               // inject selected note into chat as a system message
-               m.session.Chat = append(m.session.Chat, store.Message{Role: "system", Content: sel.selected.Body})
-               m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: fmt.Sprintf("Injected notes: %s", sel.selected.Title)})
+               switch sel.action {
+               case "inject":
+                   // inject selected note into chat as a system message
+                   m.session.Chat = append(m.session.Chat, store.Message{Role: "system", Content: sel.selected.Body})
+                   m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: fmt.Sprintf("Injected notes: %s", sel.selected.Title)})
+               case "view":
+                   // view selected note in a modal
+                   if _, err := tea.NewProgram(newViewModel(sel.selected)).Run(); err != nil {
+                       m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Error viewing note: " + err.Error()})
+                   }
+               }
            }
            return m, nil
        case tea.KeyCtrlN:
