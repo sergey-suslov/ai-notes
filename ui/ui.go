@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/glamour"
+
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,7 +16,10 @@ import (
 	"github.com/muesli/reflow/wordwrap"
 	openaiclient "github.com/sergey-suslov/ai-notes/openai"
 	"github.com/sergey-suslov/ai-notes/store"
+	"github.com/sergey-suslov/ai-notes/util"
 )
+
+var BodyStyle = lipgloss.NewStyle().Margin(1, 2)
 
 // model holds the state for the chat UI.
 type model struct {
@@ -68,9 +73,22 @@ func NewModel(client *openaiclient.Client, session *store.Session, initialWindop
 	return m
 }
 
+func (m *model) defaultBodyMargin() (int, int) { //nolint:exhaustive
+	return BodyStyle.GetFrameSize()
+}
+
 func (m *model) getChatString() string {
 	userStyle := lipgloss.NewStyle().Bold(false).Padding(1, 1).Margin(1, 2).Background(lipgloss.Color("#105fa8"))
-	aiStyle := lipgloss.NewStyle().Bold(false).Padding(1, 1).Margin(1, 1).Border(lipgloss.NormalBorder())
+	aiStyle := lipgloss.NewStyle().Bold(false).Margin(1, 1).Border(lipgloss.NormalBorder())
+	_, v := m.defaultBodyMargin()
+
+	width := util.Max(0, util.Min(int(180), m.viewport.Width-v*2))
+
+	r, _ := glamour.NewTermRenderer(
+		glamour.WithStandardStyle("dark"),
+		glamour.WithWordWrap(width),
+	)
+
 	var b strings.Builder
 	for _, msg := range m.session.Chat {
 		// var prefix string
@@ -79,7 +97,8 @@ func (m *model) getChatString() string {
 		case "user":
 			b.WriteString(userStyle.Render(wrapped))
 		case "assistant":
-			b.WriteString(aiStyle.Render(wrapped))
+			content, _ := r.Render(msg.Content)
+			b.WriteString(aiStyle.Render(content))
 		default:
 			b.WriteString(aiStyle.Render(wrapped))
 		}
