@@ -32,6 +32,8 @@ type AppModel struct {
 	view  *viewModel
 
 	screen int
+
+	windowSize tea.WindowSizeMsg
 }
 
 // NewAppModel creates the application model with loaded sessions.
@@ -53,13 +55,17 @@ func (m *AppModel) Init() tea.Cmd {
 func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.screen {
 	case screenSelect:
+		switch msg := msg.(type) {
+		case tea.WindowSizeMsg:
+			m.windowSize = msg
+		}
 		// delegate to selectionModel
 		newSel, cmd := m.selection.Update(msg)
 		m.selection = newSel.(*selectionModel)
 		// if a session was picked, move to chat
 		if m.selection.selectedSession != nil {
 			m.session = m.selection.selectedSession
-			m.chat = NewModel(m.client, m.session)
+			m.chat = NewModel(m.client, m.session, m.windowSize)
 			m.screen = screenChat
 			return m, m.chat.Init()
 		}
@@ -170,4 +176,3 @@ func Run() error {
 	}
 	return err
 }
-

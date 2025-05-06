@@ -11,9 +11,9 @@ import (
 	goopenai "github.com/sashabaranov/go-openai"
 
 	"github.com/charmbracelet/bubbles/viewport"
+	"github.com/muesli/reflow/wordwrap"
 	openaiclient "github.com/sergey-suslov/ai-notes/openai"
-   "github.com/sergey-suslov/ai-notes/store"
-   "github.com/muesli/reflow/wordwrap"
+	"github.com/sergey-suslov/ai-notes/store"
 )
 
 // model holds the state for the chat UI.
@@ -40,25 +40,25 @@ type (
 )
 
 // NewModel initializes the TUI model with  client and session.
-func NewModel(client *openaiclient.Client, session *store.Session) model {
+func NewModel(client *openaiclient.Client, session *store.Session, initialWindopwSize tea.WindowSizeMsg) model {
 	ti := textinput.New()
 	ti.Placeholder = "Type a message"
 	ti.Focus()
 	ti.CharLimit = 256
-	ti.Width = 50
+	ti.Width = initialWindopwSize.Width - 2
 
 	// If this is a new session (no prior messages), add a welcome prompt
 	if len(session.Chat) == 0 {
 		session.Chat = append(session.Chat, store.Message{Role: "assistant", Content: "Welcome to AI Notes!"})
 	}
-	vp := viewport.New(100, 20)
+	vp := viewport.New(initialWindopwSize.Width-2, initialWindopwSize.Height-2)
 	vp.YPosition = 0
 	vp.MouseWheelEnabled = true
 
 	return model{
 		client: client, session: session, input: ti,
 		viewport:   vp,
-		windowSize: tea.WindowSizeMsg{},
+		windowSize: initialWindopwSize,
 	}
 }
 
@@ -70,13 +70,13 @@ func (m model) Init() tea.Cmd {
 // Update handles key presses and async messages.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-   case tea.WindowSizeMsg:
-       m.windowSize = msg
-       m.viewport.YPosition = 0
-       // set viewport content width to terminal width minus border padding
-       m.viewport.Width = msg.Width - 2
-       // expand viewport to full screen height, accounting for border overhead
-       m.viewport.Height = msg.Height - 2
+	case tea.WindowSizeMsg:
+		m.windowSize = msg
+		m.viewport.YPosition = 0
+		// set viewport content width to terminal width minus border padding
+		m.viewport.Width = msg.Width - 2
+		// expand viewport to full screen height, accounting for border overhead
+		m.viewport.Height = msg.Height - 2
 
 	case noteMsg:
 		// append summary to chat
@@ -141,11 +141,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// call AI
 			return m, m.getCompletionCmd()
 		}
-	}
-	// update input field
-	var cmd tea.Cmd
-	m.input, cmd = m.input.Update(msg)
-	return m, cmd
+    }
+    // let viewport handle scrolling and other viewport-related events
+    var vpCmd tea.Cmd
+    m.viewport, vpCmd = m.viewport.Update(msg)
+    // update input field
+    var inputCmd tea.Cmd
+    m.input, inputCmd = m.input.Update(msg)
+    // combine viewport and input commands
+    return m, tea.Batch(vpCmd, inputCmd)
 }
 
 // View renders the chat history and the input field.
@@ -164,9 +168,9 @@ func (m model) View() string {
 		b.WriteString(prefix + msg.Content + "\n")
 	}
 	b.WriteString("\n" + m.input.View())
-   // wrap content to viewport width to prevent horizontal overflow
-   wrapped := wordwrap.String(b.String(), m.viewport.Width)
-   m.viewport.SetContent(wrapped)
+	// wrap content to viewport width to prevent horizontal overflow
+	wrapped := wordwrap.String(b.String(), m.viewport.Width)
+	m.viewport.SetContent(wrapped)
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		Render(m.viewport.View())
