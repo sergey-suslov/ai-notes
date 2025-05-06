@@ -74,7 +74,7 @@ func (m *model) getChatString() string {
 	var b strings.Builder
 	for _, msg := range m.session.Chat {
 		// var prefix string
-		wrapped := wordwrap.String(msg.Content, m.viewport.Width)
+		wrapped := wordwrap.String(msg.Content, m.viewport.Width-6)
 		switch msg.Role {
 		case "user":
 			b.WriteString(userStyle.Render(wrapped))
