@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	goopenai "github.com/sashabaranov/go-openai"
@@ -20,7 +20,7 @@ import (
 type model struct {
 	client   *openaiclient.Client
 	session  *store.Session
-	input    textinput.Model
+	input    textarea.Model
 	viewport viewport.Model
 
 	windowSize tea.WindowSizeMsg
@@ -41,11 +41,11 @@ type (
 
 // NewModel initializes the TUI model with  client and session
 func NewModel(client *openaiclient.Client, session *store.Session, initialWindopwSize tea.WindowSizeMsg) model {
-	ti := textinput.New()
+	ti := textarea.New()
 	ti.Placeholder = "Type a message"
 	ti.Focus()
 	ti.CharLimit = 256
-	ti.Width = initialWindopwSize.Width - 2
+	ti.SetWidth(initialWindopwSize.Width - 2)
 
 	// If this is a new session (no prior messages), add a welcome prompt
 	if len(session.Chat) == 0 {
@@ -90,7 +90,7 @@ func (m *model) getChatString() string {
 
 // Init runs any initial IO; we only need blinking cursor.
 func (m model) Init() tea.Cmd {
-	return textinput.Blink
+	return textarea.Blink
 }
 
 // Update handles key presses and async messages.
@@ -164,7 +164,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.getNotesCmd()
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
-		case tea.KeyEnter:
+		case tea.KeyCtrlS:
 			userInput := m.input.Value()
 			if strings.TrimSpace(userInput) == "" {
 				return m, nil
