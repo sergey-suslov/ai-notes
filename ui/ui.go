@@ -155,6 +155,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlN:
 			// trigger note generation
 			m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Generating notes..."})
+			m.viewport.GotoBottom()
 			return m, m.getNotesCmd()
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
