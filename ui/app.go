@@ -132,6 +132,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// exit view on custom message
 		if _, ok := msg.(viewExitMsg); ok {
 			m.screen = screenNotes
+			m.notes.action = ""
 			return m, nil
 		}
 		return m, cmd
