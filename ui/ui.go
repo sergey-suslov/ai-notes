@@ -51,7 +51,7 @@ func NewModel(client *openaiclient.Client, session *store.Session, initialWindop
 	if len(session.Chat) == 0 {
 		session.Chat = append(session.Chat, store.Message{Role: "assistant", Content: "Welcome to AI Notes!"})
 	}
-	vp := viewport.New(initialWindopwSize.Width-2, initialWindopwSize.Height-2)
+	vp := viewport.New(initialWindopwSize.Width-2, initialWindopwSize.Height-4)
 	vp.YPosition = 0
 	vp.MouseWheelEnabled = true
 
@@ -76,7 +76,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// set viewport content width to terminal width minus border padding
 		m.viewport.Width = msg.Width - 2
 		// expand viewport to full screen height, accounting for border overhead
-		m.viewport.Height = msg.Height - 2
+		m.viewport.Height = msg.Height - 4
 
 	case noteMsg:
 		// append summary to chat
@@ -141,19 +141,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// call AI
 			return m, m.getCompletionCmd()
 		}
-    }
-    // let viewport handle scrolling and other viewport-related events
-    var vpCmd tea.Cmd
-    m.viewport, vpCmd = m.viewport.Update(msg)
-    // update input field
-    var inputCmd tea.Cmd
-    m.input, inputCmd = m.input.Update(msg)
-    // combine viewport and input commands
-    return m, tea.Batch(vpCmd, inputCmd)
-}
-
-// View renders the chat history and the input field.
-func (m model) View() string {
+	}
+	// let viewport handle scrolling and other viewport-related events
 	var b strings.Builder
 	for _, msg := range m.session.Chat {
 		var prefix string
@@ -167,13 +156,30 @@ func (m model) View() string {
 		}
 		b.WriteString(prefix + msg.Content + "\n")
 	}
-	b.WriteString("\n" + m.input.View())
+	// b.WriteString("\n" + m.input.View())
 	// wrap content to viewport width to prevent horizontal overflow
 	wrapped := wordwrap.String(b.String(), m.viewport.Width)
 	m.viewport.SetContent(wrapped)
-	return lipgloss.NewStyle().
+
+	var vpCmd tea.Cmd
+	m.viewport, vpCmd = m.viewport.Update(msg)
+	// update input field
+	var inputCmd tea.Cmd
+	m.input, inputCmd = m.input.Update(msg)
+	// combine viewport and input commands
+	return m, tea.Batch(vpCmd, inputCmd)
+}
+
+// View renders the chat history and the input field.
+func (m model) View() string {
+	var b strings.Builder
+	chat := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		Render(m.viewport.View())
+	b.WriteString(chat)
+	b.WriteString("\n")
+	b.WriteString(m.input.View())
+	return b.String()
 }
 
 // getCompletionCmd builds a tea.Cmd that queries the OpenAI API with the full session context.
