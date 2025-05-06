@@ -55,32 +55,35 @@ func NewModel(client *openaiclient.Client, session *store.Session, initialWindop
 	vp.YPosition = 0
 	vp.MouseWheelEnabled = true
 
-	wrapped := wordwrap.String(getChatString(session), vp.Width)
-	vp.SetContent(wrapped)
-	vp.GotoBottom()
-
-	return model{
+	m := model{
 		client: client, session: session, input: ti,
 		viewport:   vp,
 		windowSize: initialWindopwSize,
 	}
+	wrapped := m.getChatString()
+	vp.SetContent(wrapped)
+	vp.GotoBottom()
+	m.viewport = vp
+
+	return m
 }
 
-func getChatString(session *store.Session) string {
-	messageStyle := lipgloss.NewStyle().Bold(false)
-	prefixStyle := lipgloss.NewStyle().Bold(true)
+func (m *model) getChatString() string {
+	userStyle := lipgloss.NewStyle().Bold(false).Padding(1, 1).Margin(1, 1).Background(lipgloss.Color("205"))
+	aiStyle := lipgloss.NewStyle().Bold(false).Padding(1, 1).Margin(1, 1).Border(lipgloss.NormalBorder())
 	var b strings.Builder
-	for _, msg := range session.Chat {
-		var prefix string
+	for _, msg := range m.session.Chat {
+		// var prefix string
+		wrapped := wordwrap.String(msg.Content, m.viewport.Width)
 		switch msg.Role {
 		case "user":
-			prefix = "\nYou: "
+			b.WriteString(userStyle.Render(wrapped))
 		case "assistant":
-			prefix = "\nAI: "
+			b.WriteString(aiStyle.Render(wrapped))
 		default:
-			prefix = msg.Role + ": "
+			b.WriteString(aiStyle.Render(wrapped))
 		}
-		b.WriteString(prefixStyle.Render(prefix) + messageStyle.Render(msg.Content+"\n"))
+		// b.WriteString(prefixStyle.Render(prefix) + messageStyle.Render(msg.Content+"\n"))
 	}
 	return b.String()
 }
@@ -171,8 +174,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// let viewport handle scrolling and other viewport-related events
 	// b.WriteString("\n" + m.input.View())
 	// wrap content to viewport width to prevent horizontal overflow
-	wrapped := wordwrap.String(getChatString(m.session), m.viewport.Width)
-	m.viewport.SetContent(wrapped)
+	m.viewport.SetContent(m.getChatString())
 
 	var vpCmd tea.Cmd
 	m.viewport, vpCmd = m.viewport.Update(msg)
@@ -187,7 +189,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var b strings.Builder
 	chat := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder(), false, false, true, false).
 		Render(m.viewport.View())
 	b.WriteString(chat)
 	b.WriteString("\n")
@@ -210,7 +212,7 @@ func (m model) getCompletionCmd() tea.Cmd {
 			}
 			msgs[i] = goopenai.ChatCompletionMessage{Role: role, Content: cm.Content}
 		}
-		resp, err := m.client.ChatCompletion(ctx, msgs, "gpt-4o")
+		resp, err := m.client.ChatCompletion(ctx, msgs, "gpt-4o-mini")
 		if err != nil {
 			return errMsg{err}
 		}
@@ -234,7 +236,7 @@ func (m model) getNotesCmd() tea.Cmd {
 			msgs[i+1] = goopenai.ChatCompletionMessage{Role: role, Content: cm.Content}
 		}
 		// get summary
-		summary, err := m.client.ChatCompletion(ctx, msgs, "gpt-4o")
+		summary, err := m.client.ChatCompletion(ctx, msgs, "gpt-4o-mini")
 		if err != nil {
 			return noteErr{err}
 		}
