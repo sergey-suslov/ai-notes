@@ -39,7 +39,7 @@ type (
 	noteErr struct{ err error }
 )
 
-// NewModel initializes the TUI model with  client and session.
+// NewModel initializes the TUI model with  client and session
 func NewModel(client *openaiclient.Client, session *store.Session, initialWindopwSize tea.WindowSizeMsg) model {
 	ti := textinput.New()
 	ti.Placeholder = "Type a message"
@@ -69,7 +69,7 @@ func NewModel(client *openaiclient.Client, session *store.Session, initialWindop
 }
 
 func (m *model) getChatString() string {
-	userStyle := lipgloss.NewStyle().Bold(false).Padding(1, 1).Margin(1, 1).Background(lipgloss.Color("205"))
+	userStyle := lipgloss.NewStyle().Bold(false).Padding(1, 1).Margin(1, 2).Background(lipgloss.Color("#105fa8"))
 	aiStyle := lipgloss.NewStyle().Bold(false).Padding(1, 1).Margin(1, 1).Border(lipgloss.NormalBorder())
 	var b strings.Builder
 	for _, msg := range m.session.Chat {
@@ -109,7 +109,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: msg.Summary})
 		// inform about saved file
 		m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: fmt.Sprintf("Notes saved to %s", msg.Path)})
+		m.viewport.SetContent(m.getChatString())
 		m.viewport.GotoBottom()
+
 		return m, nil
 	case noteErr:
 		m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Error generating notes: " + msg.err.Error()})
@@ -117,6 +119,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case aiMsg:
 		// append AI reply
 		m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: string(msg)})
+		m.viewport.SetContent(m.getChatString())
 		m.viewport.GotoBottom()
 		return m, nil
 	case errMsg:
@@ -155,7 +158,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlN:
 			// trigger note generation
 			m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Generating notes..."})
+			m.viewport.SetContent(m.getChatString())
 			m.viewport.GotoBottom()
+
 			return m, m.getNotesCmd()
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
@@ -167,7 +172,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// record user message
 			m.session.Chat = append(m.session.Chat, store.Message{Role: "user", Content: userInput})
 			m.input.Reset()
+			m.viewport.SetContent(m.getChatString())
 			m.viewport.GotoBottom()
+
 			// call AI
 			return m, m.getCompletionCmd()
 		}
