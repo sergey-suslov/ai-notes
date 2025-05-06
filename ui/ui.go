@@ -55,11 +55,34 @@ func NewModel(client *openaiclient.Client, session *store.Session, initialWindop
 	vp.YPosition = 0
 	vp.MouseWheelEnabled = true
 
+	wrapped := wordwrap.String(getChatString(session), vp.Width)
+	vp.SetContent(wrapped)
+	vp.GotoBottom()
+
 	return model{
 		client: client, session: session, input: ti,
 		viewport:   vp,
 		windowSize: initialWindopwSize,
 	}
+}
+
+func getChatString(session *store.Session) string {
+	messageStyle := lipgloss.NewStyle().Bold(false)
+	prefixStyle := lipgloss.NewStyle().Bold(true)
+	var b strings.Builder
+	for _, msg := range session.Chat {
+		var prefix string
+		switch msg.Role {
+		case "user":
+			prefix = "\nYou: "
+		case "assistant":
+			prefix = "\nAI: "
+		default:
+			prefix = msg.Role + ": "
+		}
+		b.WriteString(prefixStyle.Render(prefix) + messageStyle.Render(msg.Content+"\n"))
+	}
+	return b.String()
 }
 
 // Init runs any initial IO; we only need blinking cursor.
@@ -83,6 +106,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: msg.Summary})
 		// inform about saved file
 		m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: fmt.Sprintf("Notes saved to %s", msg.Path)})
+		m.viewport.GotoBottom()
 		return m, nil
 	case noteErr:
 		m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Error generating notes: " + msg.err.Error()})
@@ -90,6 +114,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case aiMsg:
 		// append AI reply
 		m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: string(msg)})
+		m.viewport.GotoBottom()
 		return m, nil
 	case errMsg:
 		m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Error: " + msg.err.Error()})
@@ -138,27 +163,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// record user message
 			m.session.Chat = append(m.session.Chat, store.Message{Role: "user", Content: userInput})
 			m.input.Reset()
+			m.viewport.GotoBottom()
 			// call AI
 			return m, m.getCompletionCmd()
 		}
 	}
 	// let viewport handle scrolling and other viewport-related events
-	var b strings.Builder
-	for _, msg := range m.session.Chat {
-		var prefix string
-		switch msg.Role {
-		case "user":
-			prefix = "You: "
-		case "assistant":
-			prefix = "AI: "
-		default:
-			prefix = msg.Role + ": "
-		}
-		b.WriteString(prefix + msg.Content + "\n")
-	}
 	// b.WriteString("\n" + m.input.View())
 	// wrap content to viewport width to prevent horizontal overflow
-	wrapped := wordwrap.String(b.String(), m.viewport.Width)
+	wrapped := wordwrap.String(getChatString(m.session), m.viewport.Width)
 	m.viewport.SetContent(wrapped)
 
 	var vpCmd tea.Cmd
