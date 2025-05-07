@@ -34,6 +34,8 @@ type AppModel struct {
 	screen int
 
 	windowSize tea.WindowSizeMsg
+
+	exitWithoutSaving bool
 }
 
 // NewAppModel creates the application model with loaded sessions.
@@ -88,6 +90,9 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.notes = newNotesModel(notes)
 				m.screen = screenNotes
 				return m, nil
+			case tea.KeyCtrlD:
+				m.exitWithoutSaving = true
+				return m, tea.Quit
 			case tea.KeyCtrlC, tea.KeyEsc:
 				return m, tea.Quit
 			}
@@ -171,7 +176,7 @@ func Run() error {
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	_, err = p.Run()
 	// save the session if one was active
-	if app.session != nil {
+	if app.session != nil && !app.exitWithoutSaving {
 		if serr := app.session.Save(); serr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to save session: %v\n", serr)
 		}
