@@ -110,7 +110,8 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.notes = nil
 				return m, nil
 			case "view":
-				m.view = &viewModel{note: sel}
+				vm := newViewModel(sel, m.windowSize)
+				m.view = &vm
 				m.screen = screenView
 				return m, nil
 			}
@@ -167,7 +168,7 @@ func Run() error {
 		return fmt.Errorf("loading sessions: %w", err)
 	}
 	app := NewAppModel(client, sessions)
-	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	p := tea.NewProgram(app, tea.WithAltScreen())
 	_, err = p.Run()
 	// save the session if one was active
 	if app.session != nil {

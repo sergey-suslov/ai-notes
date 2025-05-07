@@ -49,7 +49,7 @@ func NewModel(client *openaiclient.Client, session *store.Session, initialWindop
 	ti := textarea.New()
 	ti.Placeholder = "Type a message"
 	ti.Focus()
-	ti.CharLimit = 256
+	ti.CharLimit = 1000
 	ti.SetWidth(initialWindopwSize.Width - 2)
 
 	// If this is a new session (no prior messages), add a welcome prompt
@@ -78,8 +78,8 @@ func (m *model) defaultBodyMargin() (int, int) { //nolint:exhaustive
 }
 
 func (m *model) getChatString() string {
-	userStyle := lipgloss.NewStyle().Bold(false).Padding(1, 1).Margin(1, 2).Background(lipgloss.Color("#105fa8"))
-	aiStyle := lipgloss.NewStyle().Bold(false).Margin(1, 1).Border(lipgloss.NormalBorder())
+	userStyle := lipgloss.NewStyle().Bold(true).Padding(1, 1).Margin(1, 2).Background(lipgloss.Color("#105fa8"))
+	aiStyle := lipgloss.NewStyle().Bold(false).Margin(1, 0).Border(lipgloss.NormalBorder(), true, false)
 	_, v := m.defaultBodyMargin()
 
 	width := util.Max(0, util.Min(int(180), m.viewport.Width-v*2))
@@ -146,34 +146,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyCtrlL:
-			// list and inject notes
-			notes, err := store.LoadNotes()
-			if err != nil {
-				m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Error loading notes: " + err.Error()})
-				return m, nil
-			}
-			nm := newNotesModel(notes)
-			m2, err := tea.NewProgram(nm).Run()
-			if err != nil {
-				m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Error opening notes browser: " + err.Error()})
-				return m, nil
-			}
-			sel, ok := m2.(*notesModel)
-			if ok && sel.selected != nil {
-				switch sel.action {
-				case "inject":
-					// inject selected note into chat as a system message
-					m.session.Chat = append(m.session.Chat, store.Message{Role: "system", Content: sel.selected.Body})
-					m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: fmt.Sprintf("Injected notes: %s", sel.selected.Title)})
-				case "view":
-					// view selected note in a modal
-					if _, err := tea.NewProgram(newViewModel(sel.selected)).Run(); err != nil {
-						m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Error viewing note: " + err.Error()})
-					}
-				}
-			}
-			return m, nil
 		case tea.KeyCtrlN:
 			// trigger note generation
 			m.session.Chat = append(m.session.Chat, store.Message{Role: "assistant", Content: "Generating notes..."})
